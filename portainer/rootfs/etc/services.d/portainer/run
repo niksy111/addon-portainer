@@ -1,41 +1,49 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Community Hass.io Add-ons: Portainer
+# Home Assistant Community Add-on: Portainer
 # Runs portainer
 # ==============================================================================
-# shellcheck disable=SC1091
-source /usr/lib/hassio-addons/base.sh
-
 declare -a options
+export AGENT_SECRET
 
-hass.log.info 'Starting Portainer'
+bashio::log.info 'Starting Portainer...'
 
 options+=(--data /data)
-options+=(--bind :9000)
+options+=(--bind 0.0.0.0:1337)
+options+=(--no-auth)
 options+=(--template-file /opt/portainer/templates.json)
 options+=(--no-analytics)
 options+=(--host unix:///var/run/docker.sock)
 
-# Add SSL, when enabled.
-if hass.config.true 'ssl'; then
-    options+=(--ssl)
-    options+=(--sslcert "/ssl/$(hass.config.get 'certfile')")
-    options+=(--sslkey "/ssl/$(hass.config.get 'keyfile')")
-fi
-
-# Hide Hassio containers by default
-if hass.config.true 'hide_hassio_containers'; then
+# Hide Hassio containers by default, but only eforce on first run
+if ! bashio::fs.file_exists "/data/hidden"; then
     # shellcheck disable=SC2191
     options+=(--hide-label io.hass.type=supervisor)
     # shellcheck disable=SC2191
     options+=(--hide-label io.hass.type=homeassistant)
     # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=base)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=core)
+    # shellcheck disable=SC2191
     options+=(--hide-label io.hass.type=addon)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=audio)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=cli)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=dns)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=multicast)
+    # shellcheck disable=SC2191
+    options+=(--hide-label io.hass.type=observer)
+
+    touch /data/hidden
 fi
 
-# Leave front door open
-if hass.config.true 'leave_front_door_open'; then
-    options+=(--no-auth)
+# Export agent secret, if defined
+if bashio::config.has_value 'agent_secret' ; then
+    AGENT_SECRET=$(bashio::config 'agent_secret')
 fi
 
 # Run Portainer
